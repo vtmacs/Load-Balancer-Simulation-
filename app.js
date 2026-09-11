@@ -95,9 +95,10 @@ class Logger {
 
 // Initialization
 const NUM_SERVERS = 3;
-const SERVER_CAPACITY = 18; // Max requests per server
-const TOTAL_REQUESTS = 50;
+const SERVER_CAPACITY = 25; // Max requests per server, increased to handle background + burst
+const BURST_REQUESTS = 50;
 
+let requestCounter = 1;
 const servers = [];
 const logger = new Logger('logPanel');
 
@@ -123,28 +124,32 @@ for (let i = 1; i <= NUM_SERVERS; i++) {
 
 const loadBalancer = new LoadBalancer(servers);
 
-// Start Simulation
+// Continuous Background Traffic
+async function startBackgroundTraffic() {
+    logger.log('--- Background Traffic Started ---');
+    setInterval(() => {
+        const targetServer = loadBalancer.getNextServer();
+        targetServer.processRequest(`BG-${requestCounter++}`, logger);
+    }, 400); // 1 request every 400ms
+}
+
+// Start Burst Traffic
 document.getElementById('startBtn').addEventListener('click', async () => {
     const startBtn = document.getElementById('startBtn');
     startBtn.disabled = true;
-    logger.clear();
-    logger.log('--- Simulation Started ---');
+    logger.log('--- SUDDEN TRAFFIC BURST INITIATED ---', 'warning');
 
     const requests = [];
 
-    for (let i = 1; i <= TOTAL_REQUESTS; i++) {
-        // Find best server via load balancer
+    for (let i = 1; i <= BURST_REQUESTS; i++) {
         const targetServer = loadBalancer.getNextServer();
-
-        // Dispatch request
-        requests.push(targetServer.processRequest(i, logger));
-
-        // Add a small delay between incoming requests to see the load balancing in action
-
+        requests.push(targetServer.processRequest(`BURST-${requestCounter++}`, logger));
     }
 
-    // Wait for all requests to finish
     await Promise.all(requests);
-    logger.log('--- Simulation Completed ---');
+    logger.log('--- Traffic Burst Completed ---');
     startBtn.disabled = false;
 });
+
+// Start the background traffic as soon as the page loads
+startBackgroundTraffic();
